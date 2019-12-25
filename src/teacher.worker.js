@@ -18,7 +18,7 @@ export function teach(
   let teachOutput = tf.tensor(teachOutputArray)
 
   const randomSliceIndex = tensor => {
-    return (0 + Math.random() * (tensor.shape[0] - 1 - 0)) | 0
+    return (Math.random() * tensor.shape[0]) | 0
   }
 
   let input = tf.concat([randomPoints, tf.onesLike(teachOutput)], 1)
