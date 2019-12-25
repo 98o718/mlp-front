@@ -28,7 +28,6 @@ export function teach(
   for (let i = 0; i < count; i++) {
     //Прямой прогон
     //Считаем выходы слоев
-    console.log(i)
     let randomIndex = randomSliceIndex(input)
     let slicedInput = input.slice(randomIndex, 1)
     let slicedOutput = teachOutput.slice(randomIndex, 1)
