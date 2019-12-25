@@ -92,19 +92,38 @@ export function teach(
   }
 
   console.log('Веса после тренировки:')
-  console.log('входной слой')
-  weights01.print()
 
-  console.log('скрытый слой')
-  weights02.print()
+  let weights01Arr = weights01.arraySync()
+  console.log(
+    'Входной слой',
+    weights01Arr[0][0],
+    weights01Arr[1][0],
+    weights01Arr[2][0]
+  )
 
-  console.log('выходной слой')
-  weights2.print()
+  let weights02Arr = weights02.arraySync()
+  console.log(
+    'Скрытый слой',
+    weights02Arr[0][0],
+    weights02Arr[1][0],
+    weights02Arr[2][0]
+  )
 
-  console.log('Ошибка:')
-  e6.abs()
-    .mean()
-    .print()
+  let weights2Arr = weights2.arraySync()
+  console.log(
+    'Выходной слой',
+    weights2Arr[0][0],
+    weights2Arr[1][0],
+    weights2Arr[2][0]
+  )
+
+  console.log(
+    'Ошибка:',
+    e6
+      .abs()
+      .mean()
+      .arraySync()
+  )
 
   return {
     weights01: weights01.arraySync(),
