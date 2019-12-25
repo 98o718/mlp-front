@@ -1,4 +1,4 @@
-#A simple 2-2-1 multilayer perceptron
+##A simple 2-2-1 multilayer perceptron
 [https://98o718.github.io/mlp-front/](DEMO)
 
 ## Available Scripts
