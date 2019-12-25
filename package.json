@@ -39,6 +39,7 @@
       "last 1 safari version"
     ]
   },
+  "homepage": "https://98o718.github.io/mlp-front/",
   "devDependencies": {
     "serialize-javascript": "^2.1.2"
   }
