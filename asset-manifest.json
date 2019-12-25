@@ -1,0 +1,25 @@
+{
+  "files": {
+    "main.js": "/mlp-front/static/js/main.7792e0d4.chunk.js",
+    "main.js.map": "/mlp-front/static/js/main.7792e0d4.chunk.js.map",
+    "runtime-main.js": "/mlp-front/static/js/runtime-main.e7a7b60a.js",
+    "runtime-main.js.map": "/mlp-front/static/js/runtime-main.e7a7b60a.js.map",
+    "static/css/2.f44e27ca.chunk.css": "/mlp-front/static/css/2.f44e27ca.chunk.css",
+    "static/js/2.93219e62.chunk.js": "/mlp-front/static/js/2.93219e62.chunk.js",
+    "static/js/2.93219e62.chunk.js.map": "/mlp-front/static/js/2.93219e62.chunk.js.map",
+    "024b9e4a3409f802736e.worker.js": "/mlp-front/024b9e4a3409f802736e.worker.js",
+    "024b9e4a3409f802736e.worker.js.LICENSE": "/mlp-front/024b9e4a3409f802736e.worker.js.LICENSE",
+    "024b9e4a3409f802736e.worker.js.map": "/mlp-front/024b9e4a3409f802736e.worker.js.map",
+    "index.html": "/mlp-front/index.html",
+    "precache-manifest.54ca11e0a64d04459e839bd6c1bb1afc.js": "/mlp-front/precache-manifest.54ca11e0a64d04459e839bd6c1bb1afc.js",
+    "service-worker.js": "/mlp-front/service-worker.js",
+    "static/css/2.f44e27ca.chunk.css.map": "/mlp-front/static/css/2.f44e27ca.chunk.css.map",
+    "static/js/2.93219e62.chunk.js.LICENSE": "/mlp-front/static/js/2.93219e62.chunk.js.LICENSE"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.e7a7b60a.js",
+    "static/css/2.f44e27ca.chunk.css",
+    "static/js/2.93219e62.chunk.js",
+    "static/js/main.7792e0d4.chunk.js"
+  ]
+}
