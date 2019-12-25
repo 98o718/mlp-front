@@ -12,22 +12,31 @@ import {
   Button,
 } from 'reactstrap'
 import * as tf from '@tensorflow/tfjs'
-// eslint-disable-next-line import/no-webpack-loader-syntax
+// eslint-disable-next-line
 import teacherWorker from 'workerize-loader!../../teacher.worker'
 import InputNumber from 'rc-input-number'
 import { TxtReader } from 'txt-reader'
 import { saveAs } from 'file-saver'
+import {
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts'
 
 const Generator = () => {
-  const [k, setK] = useState(45)
-  const [qty, setQty] = useState(100)
-  const [sd, setSd] = useState(2)
-  const [count, setCount] = useState(10000)
+  const [k, setK] = useState(1)
+  const [qty, setQty] = useState(10)
+  const [sd1, setSd1] = useState(0.2)
+  const [sd2, setSd2] = useState(0.3)
+  const [count, setCount] = useState(1000)
   const [nu, setNu] = useState(0.5)
-  const [scale, setScale] = useState(10)
-  const [m, setM] = useState(5)
   const [b, setB] = useState(0)
+  const [offset, setOffset] = useState(1)
 
+  const M = 0
   const CLASS1 = 0.9
   const CLASS2 = 0.1
 
@@ -37,51 +46,122 @@ const Generator = () => {
   const [teached, setTeached] = useState(false)
   const [teaching, setTeaching] = useState(false)
   const [teacher, setTeacher] = useState()
+  const [firstClass, setFirstClass] = useState()
+  const [secondClass, setSecondClass] = useState()
+  // const [line, setLine] = useState()
 
   const [file, setFile] = useState()
-
-  const [prediction, setPrediction] = useState()
+  const [isFile, setIsFile] = useState(false)
 
   const [weights01, setWeights01] = useState()
   const [weights02, setWeights02] = useState()
   const [weights2, setWeights2] = useState()
 
+  tf.setBackend('cpu')
   tf.initializers.randomUniform({ seed: 1 })
+
+  useEffect(() => {
+    randomPoints && setScaled(tf.scalar(1).div(randomPoints))
+    // eslint-disable-next-line
+  }, [randomPoints])
 
   useEffect(() => {
     setTeacher(teacherWorker())
 
-    setWeights01(tf.randomUniform([3, 1], -1, 1))
-    setWeights02(tf.randomUniform([3, 1], -1, 1))
-    setWeights2(tf.randomUniform([3, 1], -1, 1))
+    resetWeights()
 
-    let randomNormal = tf.randomNormal([qty, 2], m, sd)
-
-    let output = randomNormal.arraySync().map(point => team(point))
-
-    setRandomPoints(randomNormal)
-    setScaled(tf.scalar(1).div(randomNormal))
-    setTeachOutput(tf.tensor([output]).transpose())
+    generate()
     // eslint-disable-next-line
   }, [])
 
   useEffect(() => {
-    setRandomPoints(tf.randomNormal([qty, 2], m, sd))
+    generate()
     setTeached(false)
-  }, [qty, sd, m])
+    // eslint-disable-next-line
+  }, [qty, sd1, sd2, k, b, offset])
 
   useEffect(() => {
-    if (randomPoints) {
-      let output = randomPoints.arraySync().map(point => team(point))
-      setTeached(false)
-      tf.scalar(1)
-        .div(randomPoints)
-        .print()
-      setScaled(tf.scalar(1).div(randomPoints))
-      setTeachOutput(tf.tensor([output]).transpose())
+    resetWeights()
+    // eslint-disable-next-line
+  }, [k, b])
+
+  useEffect(() => {
+    if (isFile) {
+      setFirstClass([])
+      setSecondClass([])
+    } else {
+      resetWeights()
+      generate()
     }
     // eslint-disable-next-line
-  }, [randomPoints, k, b])
+  }, [isFile])
+
+  const generate = () => {
+    let x = i => 2 + i * 0.1
+    let y = x => k * x + b
+
+    let lineCoords = []
+    let x1s = []
+    let x2s = []
+
+    for (let i = 0; i < qty; i++) {
+      lineCoords.push({
+        x: x(i),
+        y: y(x(i)),
+      })
+
+      x1s.push(x(i))
+      x2s.push(y(x(i)))
+    }
+
+    let firstClassDotX = tf
+      .tensor([x1s])
+      .add(tf.randomNormal([qty], M, sd1))
+      .transpose()
+
+    let firstClassDotY = firstClassDotX
+      .mul(tf.scalar(k))
+      .add(tf.scalar(b))
+      .add(tf.scalar(offset))
+      .add(tf.randomNormal([qty, 1], M, sd2))
+
+    let firstClassTensor = tf.concat([firstClassDotX, firstClassDotY], 1)
+
+    let secondClassDotX = tf
+      .tensor([x1s])
+      .add(tf.randomNormal([qty], M, sd1))
+      .transpose()
+
+    let secondClassDotY = secondClassDotX
+      .mul(tf.scalar(k))
+      .add(tf.scalar(b))
+      .sub(tf.scalar(offset))
+      .add(tf.randomNormal([qty, 1], M, sd2))
+
+    let secondClassTensor = tf.concat([secondClassDotX, secondClassDotY], 1)
+
+    let firstDots = firstClassTensor
+      .arraySync()
+      .map(point => ({ x: point[0], y: point[1] }))
+
+    let secondDots = secondClassTensor
+      .arraySync()
+      .map(point => ({ x: point[0], y: point[1] }))
+
+    setFirstClass(firstDots)
+    setSecondClass(secondDots)
+
+    let input = tf.concat([firstClassTensor, secondClassTensor])
+
+    let output = tf.concat([
+      tf.fill([qty, 1], CLASS1),
+      tf.fill([qty, 1], CLASS2),
+    ])
+    setRandomPoints(input)
+    setTeachOutput(output)
+
+    // setLine(lineCoords)
+  }
 
   const fetchWebWorker = async () => {
     console.log('training...')
@@ -107,6 +187,7 @@ const Generator = () => {
     setWeights2(tf.tensor(newWeights2))
 
     setTeaching(false)
+    setTeached(true)
     predict(
       tf.tensor(newWeights01),
       tf.tensor(newWeights02),
@@ -114,24 +195,10 @@ const Generator = () => {
     )
   }
 
-  const refresh = () => {
-    setRandomPoints(tf.randomNormal([qty, 2], m, sd))
-  }
-
   const predict = (weights01, weights02, weights2) => {
     let input = tf.concat([scaled, tf.onesLike(teachOutput)], 1)
 
-    //Считаем выходы слоев
-    let net4 = tf.dot(input, weights01)
-    let net5 = tf.dot(input, weights02)
-
-    let y4 = net4.sigmoid()
-    let y5 = net5.sigmoid()
-
-    let hiddenOutput = tf.concat([tf.onesLike(y4), y4, y5], 1)
-
-    let net6 = tf.dot(hiddenOutput, weights2)
-    let y6 = net6.sigmoid()
+    let y6 = straightRun(input, weights01, weights02, weights2)
 
     let counter = 0
     let array = teachOutput.arraySync()
@@ -143,27 +210,31 @@ const Generator = () => {
           ? Math.ceil(array[idx][0] * 10) / 10
           : Math.floor(array[idx][0] * 10) / 10
 
-      console.log(cl, compared)
       if (cl === compared) {
         counter++
       }
     })
 
-    alert(
-      `Достоверность предсказания: ${(counter / teachOutput.shape[0]) * 100}%`
-    )
+    alert(`Точность классификации: ${(counter / teachOutput.shape[0]) * 100}%`)
+  }
 
-    setPrediction(y6.arraySync())
-    setTeached(true)
+  const straightRun = (input, weights01, weights02, weights2) => {
+    //Считаем выходы слоев
+    let net4 = tf.dot(input, weights01)
+    let net5 = tf.dot(input, weights02)
+
+    let y4 = net4.sigmoid()
+    let y5 = net5.sigmoid()
+
+    let hiddenOutput = tf.concat([tf.onesLike(y4), y4, y5], 1)
+
+    let net6 = tf.dot(hiddenOutput, weights2)
+    return net6.sigmoid()
   }
 
   const changeAngle = e => {
-    setWeights01(tf.randomUniform([3, 1], -1, 1))
-    setWeights02(tf.randomUniform([3, 1], -1, 1))
-    setWeights2(tf.randomUniform([3, 1], -1, 1))
-
     let parsed = parseInt(e)
-    if (isNaN(parsed) || parsed < -90 || parsed > 90) {
+    if (isNaN(parsed)) {
       return
     }
     setK(parsed)
@@ -185,12 +256,20 @@ const Generator = () => {
     setB(parsed)
   }
 
-  const changeSd = e => {
+  const changeSd1 = e => {
     let parsed = parseFloat(e)
     if (!e || !parsed || parsed < 0) {
       return
     }
-    setSd(parsed)
+    setSd1(parsed)
+  }
+
+  const changeSd2 = e => {
+    let parsed = parseFloat(e)
+    if (!e || !parsed || parsed < 0) {
+      return
+    }
+    setSd2(parsed)
   }
 
   const changeCount = e => {
@@ -209,20 +288,12 @@ const Generator = () => {
     setNu(parsed)
   }
 
-  const changeM = e => {
-    let parsed = parseFloat(e)
-    if (!e || !parsed || parsed < 0) {
-      return
-    }
-    setM(parsed)
-  }
-
-  const changeScale = e => {
+  const changeOffset = e => {
     let parsed = parseInt(e)
-    if (!e || !parsed || parsed < 0) {
+    if (!e || !parsed || parsed <= 0) {
       return
     }
-    setScale(parsed)
+    setOffset(parsed)
   }
 
   const resetWeights = () => {
@@ -237,21 +308,78 @@ const Generator = () => {
     reader.sniffLines(file).then(res => {
       let text = res.result
       let points = []
+      let output = []
+      let class1 = []
+      let class2 = []
 
       text.forEach(line => {
         let arrayLine = line.split('\t')
-        points.push([
-          parseFloat(arrayLine[0].replace(',', '.')),
-          parseFloat(arrayLine[1].replace(',', '.')),
-        ])
+        let x = parseFloat(arrayLine[0].replace(',', '.'))
+        let y = parseFloat(arrayLine[1].replace(',', '.'))
+        if (arrayLine[2]) {
+          let cl = parseFloat(arrayLine[2].replace(',', '.'))
+
+          if (cl === CLASS1) {
+            class1.push({
+              x,
+              y,
+            })
+          } else {
+            class2.push({
+              x,
+              y,
+            })
+          }
+
+          output.push([cl])
+        }
+
+        points.push([x, y])
       })
 
       setRandomPoints(tf.tensor(points))
+
+      if (class1.length > 0 && class2.length > 0) {
+        setFirstClass(class1)
+        setSecondClass(class2)
+      } else {
+        let sc = tf.scalar(1).div(tf.tensor(points))
+        let ones = tf.ones([points.length, 1])
+
+        let input = tf.concat([sc, ones], 1)
+
+        input.print()
+
+        let y6 = straightRun(input, weights01, weights02, weights2)
+
+        y6.print()
+
+        y6.arraySync().forEach((result, idx) => {
+          let c =
+            Math.abs(result - CLASS1) < Math.abs(result - CLASS2)
+              ? CLASS1
+              : CLASS2
+
+          if (c === CLASS1) {
+            class1.push({
+              x: points[idx][0],
+              y: points[idx][1],
+            })
+          } else {
+            class2.push({
+              x: points[idx][0],
+              y: points[idx][1],
+            })
+          }
+        })
+
+        setFirstClass(class1)
+        setSecondClass(class2)
+      }
+
+      setTeachOutput(tf.tensor(output))
     })
   }
-
-  const team = point =>
-    point[0] * Math.tan(((90 - k) * Math.PI) / 180) + b < point[1] ? 0.9 : 0.1
 
   const createFile = () => {
     let output = teachOutput.arraySync()
@@ -274,74 +402,85 @@ const Generator = () => {
   }
 
   return (
-    <Card style={{ marginBottom: 30 }}>
-      <CardBody>
-        <CardText className="d-flex flex-column align-items-center">
-          {randomPoints && (
-            <svg
-              height="400px"
-              width="400px"
-              viewBox={`0 0 ${scale} ${scale}`}
-              style={{ border: '1px solid grey', transform: 'rotate(270deg)' }}
+    <Card style={{ marginBottom: 30, padding: 30, border: 'none' }}>
+      <Row>
+        <Col
+          className="d-flex flex-row justify-content-end"
+          style={{ marginTop: 15, userSelect: 'none' }}
+        >
+          <FormGroup className="d-flex flex-row no-wrap" style={{ width: 200 }}>
+            <div
+              style={{ cursor: 'default', marginRight: 10 }}
+              onClick={() => setIsFile(!isFile)}
             >
-              {randomPoints.arraySync().map((point, idx) => (
-                <circle
-                  key={idx}
-                  cx={point[0]}
-                  cy={point[1]}
-                  r="0.1"
-                  fill={
-                    teached
-                      ? Math.abs(prediction[idx] - CLASS1) <
-                        Math.abs(prediction[idx] - CLASS2)
-                        ? 'magenta'
-                        : 'cyan'
-                      : team(point) > 0.1
-                      ? 'red'
-                      : 'blue'
-                  }
-                />
-              ))}
-              <line
-                x1="-10000"
-                y1="0"
-                x2="10000"
-                y2="0"
-                transform={`translate(0, 0) rotate(${90 - k})`}
-                stroke="grey"
-                strokeWidth="0.05"
-              />
-            </svg>
-          )}
-        </CardText>
-        <CardText className="d-flex flex-row justify-content-center">
-          <Button style={{ marginRight: 15 }} onClick={refresh} color="info">
+              Генератор
+            </div>
+            <CustomInput
+              type="switch"
+              id="fileSwitch"
+              name="fileSwitch"
+              checked={isFile}
+              label={'Из файла'}
+              onChange={() => setIsFile(!isFile)}
+            />
+          </FormGroup>
+        </Col>
+      </Row>
+      <CardBody className="d-flex flex-column align-items-center">
+        {randomPoints && (
+          <ScatterChart
+            width={500}
+            height={500}
+            margin={{
+              top: 20,
+              right: 20,
+              bottom: 20,
+              left: -30,
+            }}
+          >
+            <CartesianGrid />
+            <XAxis type="number" dataKey="x" />
+            <YAxis type="number" dataKey="y" />
+            <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+            <Scatter data={firstClass} fill="#17a2b7" />
+            <Scatter data={secondClass} fill="#dc3546" />
+            {/* {!isFile && <Scatter data={line} line fill="blue" />} */}
+          </ScatterChart>
+        )}
+      </CardBody>
+      <CardText className="d-flex flex-row justify-content-center">
+        {!isFile && (
+          <Button style={{ marginRight: 15 }} onClick={generate} color="info">
             Обновить
           </Button>
-          <Button
-            style={{ marginRight: 15 }}
-            disabled={teaching}
-            onClick={fetchWebWorker}
-          >
-            Обучить
-          </Button>
+        )}
+        <Button
+          style={{ marginRight: 15 }}
+          disabled={teaching}
+          onClick={fetchWebWorker}
+        >
+          Обучить
+        </Button>
+        {!isFile && (
           <Button
             style={{ marginRight: 15 }}
             color="success"
-            // disabled={!teached}
+            disabled={!teached}
             onClick={() => predict(weights01, weights02, weights2)}
           >
             Предсказать
           </Button>
-          <Button disabled={teaching} onClick={resetWeights}>
-            Сбросить веса
-          </Button>
-        </CardText>
-        <Form>
+        )}
+        <Button disabled={teaching} onClick={resetWeights}>
+          Сбросить веса
+        </Button>
+      </CardText>
+      <Form style={{ marginBottom: 15 }}>
+        {!isFile && (
           <Row form className="d-flex flex-row justify-content-center">
             <Col md={2}>
               <FormGroup>
-                <Label for="angle">Угол прямой</Label>
+                <Label for="angle">Угловой коэф-т</Label>
                 <InputNumber
                   style={{ width: '100%' }}
                   value={k}
@@ -363,30 +502,44 @@ const Generator = () => {
             </Col>
             <Col md={2}>
               <FormGroup>
-                <Label for="sd">СКО</Label>
+                <Label for="sd">СКО1</Label>
                 <InputNumber
                   style={{ width: '100%' }}
-                  value={sd}
+                  value={sd1}
                   min={0.01}
-                  step={0.01}
-                  onChange={changeSd}
+                  step={0.1}
+                  onChange={changeSd1}
                 />
               </FormGroup>
             </Col>
             <Col md={2}>
               <FormGroup>
-                <Label for="sd">Среднее</Label>
+                <Label for="sd">СКО2</Label>
                 <InputNumber
                   style={{ width: '100%' }}
-                  value={m}
+                  value={sd2}
                   min={0.01}
-                  step={0.01}
-                  onChange={changeM}
+                  step={0.1}
+                  onChange={changeSd2}
+                />
+              </FormGroup>
+            </Col>
+            <Col md={2}>
+              <FormGroup>
+                <Label for="sd">Смещение от прямой</Label>
+                <InputNumber
+                  style={{ width: '100%' }}
+                  value={offset}
+                  min={1}
+                  step={1}
+                  onChange={changeOffset}
                 />
               </FormGroup>
             </Col>
           </Row>
-          <Row form className="d-flex flex-row justify-content-center">
+        )}
+        <Row form className="d-flex flex-row justify-content-center">
+          {!isFile && (
             <Col md={2}>
               <FormGroup>
                 <Label for="count">B</Label>
@@ -398,41 +551,42 @@ const Generator = () => {
                 />
               </FormGroup>
             </Col>
-            <Col md={2}>
-              <FormGroup>
-                <Label for="count">Кол-во циклов</Label>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  value={count}
-                  min={1}
-                  onChange={changeCount}
-                />
-              </FormGroup>
+          )}
+          <Col md={2}>
+            <FormGroup>
+              <Label for="count">Кол-во циклов</Label>
+              <InputNumber
+                style={{ width: '100%' }}
+                value={count}
+                min={1}
+                onChange={changeCount}
+              />
+            </FormGroup>
+          </Col>
+          <Col md={2}>
+            <FormGroup>
+              <Label for="nu">Скорость обучения</Label>
+              <InputNumber
+                style={{ width: '100%' }}
+                value={nu}
+                min={0.01}
+                step={0.01}
+                onChange={changeNu}
+              />
+            </FormGroup>
+          </Col>
+          {!isFile && (
+            <Col md={2} className="d-flex">
+              <Button
+                style={{ alignSelf: 'flex-end', marginBottom: '1rem' }}
+                onClick={createFile}
+              >
+                Выгрузить в файл
+              </Button>
             </Col>
-            <Col md={2}>
-              <FormGroup>
-                <Label for="nu">Скорость обучения</Label>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  value={nu}
-                  min={0.01}
-                  step={0.01}
-                  onChange={changeNu}
-                />
-              </FormGroup>
-            </Col>
-            <Col md={2}>
-              <FormGroup>
-                <Label for="nu">Масштаб</Label>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  value={scale}
-                  min={1}
-                  onChange={changeScale}
-                />
-              </FormGroup>
-            </Col>
-          </Row>
+          )}
+        </Row>
+        {isFile && (
           <Row form className="d-flex flex-row justify-content-center">
             <Col md={6}>
               <FormGroup>
@@ -455,17 +609,9 @@ const Generator = () => {
                 Построить
               </Button>
             </Col>
-            <Col md={2} className="d-flex">
-              <Button
-                style={{ alignSelf: 'flex-end', marginBottom: '1rem' }}
-                onClick={createFile}
-              >
-                Выгрузить в файл
-              </Button>
-            </Col>
           </Row>
-        </Form>
-      </CardBody>
+        )}
+      </Form>
     </Card>
   )
 }
