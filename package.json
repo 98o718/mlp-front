@@ -41,6 +41,6 @@
   },
   "homepage": "https://98o718.github.io/mlp-front/",
   "devDependencies": {
-    "serialize-javascript": "^2.1.2"
+    "serialize-javascript": "^3.1.0"
   }
 }
